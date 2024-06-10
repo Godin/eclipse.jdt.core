@@ -18,6 +18,8 @@ import java.util.Map;
 
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.core.util.ClassFileBytesDisassembler;
+import org.eclipse.jdt.core.util.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
@@ -4689,5 +4691,69 @@ public class RecordPatternTest extends AbstractRegressionTest9 {
 				"	                                      ^^\n" +
 				"Syntax error on tokens, delete these tokens\n" +
 				"----------\n");
+	}
+	// TODO
+	public void testIssueTODO() throws ClassFormatException, IOException {
+		Map<String, String> options = getCompilerOptions(false);
+		String source =
+			"""
+			public class Test {
+				static void example(Object o) {
+					switch (o) {
+					case R(Object c) -> System.out.println();
+					default -> System.out.println();
+					}
+				}
+				public static void main(String[] obj) {
+				}
+			}
+			record R(Object c) {}
+			""";
+		String expectedOutput =
+			"""
+			  static void example(Object o);
+			     0  aload_0 [o]
+			     1  dup
+			     2  invokestatic Objects.requireNonNull(Object) : Object [16]
+			     5  pop
+			     6  astore_1
+			     7  iconst_0
+			     8  istore_2
+			     9  aload_1
+			    10  iload_2
+			    11  invokedynamic 0 typeSwitch(Object, int) : int [22]
+			    16  tableswitch default: 61
+			          case 0: 36
+			    36  aload_1
+			    37  checkcast R [26]
+			    40  invokevirtual R.c() : Object [28]
+			    43  astore_3 [c]
+			    44  goto 52
+			    47  iconst_1
+			    48  istore_2
+			    49  goto 9
+			    52  getstatic System.out : PrintStream [32]
+			    55  invokevirtual PrintStream.println() : void [38]
+			    58  goto 67
+			    61  getstatic System.out : PrintStream [32]
+			    64  invokevirtual PrintStream.println() : void [38]
+			    67  return
+			    68  new MatchException [43]
+			    71  dup_x1
+			    72  swap
+			    73  dup
+			    74  invokevirtual Throwable.toString() : String [45]
+			    77  swap
+			    78  invokespecial MatchException(String, Throwable) [51]
+			    81  athrow
+			""";
+		checkClassFile("Test", source, expectedOutput, ClassFileBytesDisassembler.DETAILED | ClassFileBytesDisassembler.COMPACT);
+		runConformTest(
+				new String[] {
+						"Test.java",
+						source
+				},
+				"",
+				options);
 	}
 }
